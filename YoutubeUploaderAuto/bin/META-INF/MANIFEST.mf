@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Created-By: Tech Storm
+Class-Path: google-api-client-1.18.0-rc.jar google-api-services-youtube-v3-rev107-1.18.0-rc.jar google-api-services-youtubeAnalytics-v1-rev24-1.17.0-rc.jar google-collections-1.0.jar google-http-client-1.18.0-rc.jar google-http-client-jackson2-1.18.0-rc.jar google-oauth-client-1.18.0-rc.jar google-oauth-client-java6-1.18.0-rc.jar google-oauth-client-jetty-1.18.0-rc.jar httpclient-4.0.1.jar httpcore-4.0.1.jar jackson-core-2.1.3.jar jackson-core-asl-1.9.4.jar jackson-mapper-asl-1.9.4.jar jsr305-1.3.9.jar opencsv-2.4.jar guava-18.0.jar jetty-6.1.26.jar jetty-util-6.1.26.jar servlet-api-2.5-20081211.jar client_secrets.json youtube.properties  
+Main-Class: com.google.api.services.samples.youtube.cmdline.data.UploadVideo
