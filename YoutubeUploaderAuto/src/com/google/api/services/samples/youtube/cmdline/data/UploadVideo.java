@@ -27,6 +27,7 @@ import au.com.bytecode.opencsv.CSVWriteProc;
 import au.com.bytecode.opencsv.CSVWriter;
 
 import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.googleapis.auth.clientlogin.ClientLogin.Response;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.googleapis.media.MediaHttpUploader;
 import com.google.api.client.googleapis.media.MediaHttpUploaderProgressListener;
@@ -71,44 +72,26 @@ public class UploadVideo {
      */
     public static void main(final String[] args) throws IOException {
 
-    	String tempFirst = "";
-    	String tempSecond = "";
+    	int videosPerAccount = 50;
+    	String tempFirst = "input.csv";
+    	String tempSecond = "description";
+    	String tempThird = "account.csv";
     	
-    	if (args == null || args.length == 0 || args[0] == null || args[0].equals("")) { //csv file path
-    		System.out.println("(Default) Using \"input.csv\" file");
-    		tempFirst = "input.csv";
-    	} else {
-    		if (!new File(args[0]).isFile()) {
-    			System.out.println("First parameter must be a file");
-    			return;
+    	if (args.length == 0) {
+    		// do nothing
+    	} else if (args.length == 1) {
+    		try {
+    			videosPerAccount = Integer.parseInt(args[0]);
+    		} catch (NumberFormatException e) {
+    			videosPerAccount = 50;
     		}
-    		tempFirst = args[0];
-    	}
-    	
-    	if (!new File(tempFirst).exists()) {
-    		System.out.println("First parameter! File not found.");
-    		return;
-    	}
-    	
-    	if (args == null || args.length <= 1 ||args[1] == null || args[1].equals("")) { //csv file path
-    		System.out.println("(Default) Using \"description\" folder");
-    		tempSecond = "description";
-    	} else {
-    		if (!new File(args[1]).isDirectory()) {
-    			System.out.println("Second parameter must be a directory");
-    			return;
-    		}
-    		tempSecond = args[1];
-    	}
-    	
-    	if (!new File(tempSecond).exists()) {
-    		System.out.println("Second parameter! File not found.");
-    		return;
     	}
     	
     	final String first = tempFirst;
     	final String second = tempSecond;
+    	final String third = tempThird;
     	final String output = "output.txt";
+    	
     	
         // This OAuth 2.0 access scope allows an application to upload files
         // to the authenticated user's YouTube channel, but doesn't allow
@@ -117,7 +100,7 @@ public class UploadVideo {
 
         
             // Authorize the request.
-            Credential credential = Auth.authorize(scopes, "uploadvideo");
+        Credential credential = Auth.authorize(scopes, "uploadvideo");
 
             // This object is used to make YouTube Data API requests.
             youtube = new YouTube.Builder(Auth.HTTP_TRANSPORT, Auth.JSON_FACTORY, credential).setApplicationName(
@@ -129,11 +112,33 @@ public class UploadVideo {
             final File[] descriptionFiles = directory.listFiles();
             
             final List<String> videoIdList = new ArrayList<String>();
+            final List<Account> accountList = new ArrayList<Account>();
             
             // read csv file for each rows
             CSV csv = CSV
             	    .separator(',')  // delimiter of fields
             	    .create();       // new instance is immutable
+            
+            csv.read(third, new CSVReadProc() {
+                public void procRow(int rowIndex, String... values) {
+                	if (rowIndex == 0) {
+                		return;
+                	}
+                	
+                	Account acc = new Account();
+                	acc.username = values[0];
+                	acc.password = values[1];
+                	accountList.add(acc);
+                }
+            });
+            
+            if (accountList.size() == 0) {
+            	System.out.println("Account not found.");
+            	System.out.println("Stopped uploading videos.");
+            	return;
+            }
+            
+            final int accountIndex = 0;
             
             csv.read(first, new CSVReadProc() {
                 public void procRow(int rowIndex, String... values) {

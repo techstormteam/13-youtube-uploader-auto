@@ -4,8 +4,11 @@ import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.auth.oauth2.StoredCredential;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
+import com.google.api.client.googleapis.auth.clientlogin.ClientLogin;
+import com.google.api.client.googleapis.auth.clientlogin.ClientLogin.Response;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
+import com.google.api.client.http.HttpResponseException;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
@@ -73,5 +76,29 @@ public class Auth {
 
         // Authorize.
         return new AuthorizationCodeInstalledApp(flow, localReceiver).authorize("user");
+    }
+    
+    public static Response authorizeUser(String username, String password) throws IOException {
+
+    	Response result = null;
+    	// HttpTransport used to send login request.
+        HttpTransport transport = new NetHttpTransport();
+        try {
+          // authenticate with ClientLogin
+          ClientLogin authenticator = new ClientLogin();
+          authenticator.transport = transport;
+          // Google service trying to access, e.g., "cl" for calendar.
+          authenticator.authTokenType = "cl";
+          authenticator.username = username;
+          authenticator.password = password;
+          result = authenticator.authenticate();
+          System.out.println("Authentication succeeded.");
+        } catch (HttpResponseException e) {
+          // Likely a "403 Forbidden" error.
+          System.err.println(e.getStatusMessage());
+          throw e;
+        }
+        
+        return result;
     }
 }
