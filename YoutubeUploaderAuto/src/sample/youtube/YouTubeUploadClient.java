@@ -20,7 +20,9 @@ import au.com.bytecode.opencsv.CSVReadProc;
 import au.com.bytecode.opencsv.CSVWriteProc;
 import au.com.bytecode.opencsv.CSVWriter;
 
+import com.google.api.client.googleapis.auth.clientlogin.ClientLogin.Response;
 import com.google.api.client.util.Charsets;
+import com.google.api.services.samples.youtube.cmdline.Auth;
 import com.google.api.services.samples.youtube.cmdline.data.Account;
 import com.google.common.io.Files;
 import com.google.gdata.client.media.ResumableGDataFileUploader;
@@ -66,7 +68,7 @@ public class YouTubeUploadClient {
 	private static final String VIDEO_FILE_FORMAT = "video/*";
 	
 	/** Time interval at which upload task will notify about the progress */
-	private static final int PROGRESS_UPDATE_INTERVAL = 1000;
+	private static final int PROGRESS_UPDATE_INTERVAL = 3000;
 
 	/** Max size for each upload chunk */
 	private static final int DEFAULT_CHUNK_SIZE = 10000000;
@@ -119,7 +121,8 @@ public class YouTubeUploadClient {
 	 */
 	private void uploadVideo(YouTubeService service, 
 			String videoFilePath,
-			File[] descriptionFiles, String title, List<String> videoIdList) throws IOException,
+			File[] descriptionFiles, String title, 
+			List<String> videoIdList, String url) throws IOException,
 			ServiceException, InterruptedException {
 
 		System.out.println(videoFilePath);
@@ -137,6 +140,7 @@ public class YouTubeUploadClient {
             randomDescription = Files.toString(descriptionFile, Charsets.UTF_8);
             if (randomDescription != null) {
             	randomDescription = randomDescription.replaceAll("\\[TITLE\\]", title);
+            	randomDescription = randomDescription.replaceAll("http://url", url);
             }
         }
 		
@@ -214,7 +218,7 @@ public class YouTubeUploadClient {
 			videoNumberPerAccount = 0;
 		}
 		boolean help = parser.containsKey("help", "h");
-		String developerKey = "AIzaSyDx4EOP-SO8KM6pCXGOi9D7lv3a4X4S-6g";
+		String developerKey = "AIzaSyDx4EOP-SO8KM6pCXGOi9D7lv3a4X4S-6g"; //vinh.thien0301@gmail.com
 		
 
 		if (help || videoNumberPerAccount == 0) {
@@ -277,14 +281,19 @@ public class YouTubeUploadClient {
 								accountList.get(accountIndex).password);
 				} catch (AuthenticationException e) {
 					System.out.println("Invalid login credentials.");
+					System.out.println(e.getMessage());
 					System.exit(1);
 				}
-
 				
 
 				try {
-					client.uploadVideo(service,"videos/"+values[0],
-							descriptionFiles, values[0], videoIdList);
+					client.uploadVideo(
+							service, // YouTubeService
+							"videos/"+values[0], // videoFilePath
+							descriptionFiles, // descriptionFiles
+							values[0], // title
+							videoIdList, // videoIdList
+							values[2]); // url
 
 				} catch (IOException e) {
 					// Communications error
