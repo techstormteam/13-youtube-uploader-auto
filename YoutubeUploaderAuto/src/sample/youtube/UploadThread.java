@@ -46,16 +46,61 @@ import com.google.gdata.util.ServiceException;
  */
 public class UploadThread implements Runnable {
 
+	/**
+	 * The URL used to resumable upload
+	 */
+	public static final String RESUMABLE_UPLOAD_URL = "http://uploads.gdata.youtube.com/resumable/feeds/api/users/default/uploads";
 	
+	private static final String VIDEO_FILE_FORMAT = "video/*";
+	
+	/** Max size for each upload chunk */
+	private static final int DEFAULT_CHUNK_SIZE = 10000000;
+	
+	public YouTubeService service;
+	public List<String> videoFileNames;
+	public File[] descriptionFiles;
+	public String inputDescription;
+	public List<Output> videoOutputList;
+	public String url;
 	public List<ResumableGDataFileUploader> uploaders = new ArrayList<ResumableGDataFileUploader>();
 	public String youtubeUsername;
+	public int delay;
 
 	@Override
 	public void run() {
 
-		for (ResumableGDataFileUploader uploader : uploaders) {
+		List<Thread> subThreadList = new ArrayList<Thread>();
+		for (String videoFileName : videoFileNames) {
 			try {
-				uploadVideo(uploader);
+				ResumableGDataFileUploader uploader = prepareVideoUploader(
+						service,
+						"videos/"+videoFileName, 
+						descriptionFiles,
+						inputDescription,
+						videoFileName.substring(0, videoFileName.length() - 4) // title removed .avi
+							.replace("_", " ")
+							.replace("-", " "),
+						videoOutputList,
+						url,
+						youtubeUsername);
+				Thread subThread = new Thread(new Runnable() {
+					
+					@Override
+					public void run() {
+						try {
+							uploadVideo(uploader);
+						} catch (IOException | ServiceException
+								| InterruptedException e) {
+							e.printStackTrace();
+						}
+					}
+				});
+				subThread.start();
+				subThreadList.add(subThread);
+				System.out.println("Thread " + youtubeUsername 
+						+ " sleeping in " + delay + " second(s).");
+				Thread.sleep(delay * 1000);
+				
 			} catch (IOException e) {
 				// Communications error
 				System.err
@@ -69,9 +114,72 @@ public class UploadThread implements Runnable {
 				System.out.println("Upload interrupted");
 			}
 		}
-
+		for (Thread thread : subThreadList) {
+			try {
+				thread.join();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 
+	private static ResumableGDataFileUploader prepareVideoUploader(
+			YouTubeService service, 
+			String videoFilePath,
+			File[] descriptionFiles, 
+			String inputDescription, 
+			String title,
+			List<Output> videoOutputList, 
+			String url, 
+			String youtubeUsername) throws IOException, ServiceException,
+				InterruptedException {
+		
+		System.out.println("\nProcessing... Email:" 
+				+ youtubeUsername +" Video:"+videoFilePath);
+		
+		File videoFile = new File(videoFilePath);
+		if (!videoFile.exists()) {
+			System.out.println("Sorry, that video doesn't exist.");
+			return null;
+		}
+		String randomDescription = "";
+		if (descriptionFiles.length > 0) {
+			final Random random = new Random();
+			int randomInt = randomInteger(0, descriptionFiles.length - 1,
+					random);
+			
+			File descriptionFile = descriptionFiles[randomInt];
+			randomDescription = Files.toString(descriptionFile, Charsets.UTF_8);
+			
+			if (randomDescription != null) {
+				randomDescription = randomDescription.replaceAll("\\[TITLE\\]",
+						title);
+				randomDescription = randomDescription.replaceAll("http://url",
+						url);
+			}
+		}
+
+		MediaFileSource ms = new MediaFileSource(videoFile, VIDEO_FILE_FORMAT);
+		String videoTitle = title;
+		VideoEntry newEntry = new VideoEntry();
+		YouTubeMediaGroup mg = newEntry.getOrCreateMediaGroup();
+		mg.addCategory(new MediaCategory(YouTubeNamespace.CATEGORY_SCHEME,
+				"Tech"));
+		mg.setTitle(new MediaTitle());
+		mg.getTitle().setPlainTextContent(videoTitle);
+		mg.setKeywords(new MediaKeywords());
+		mg.getKeywords().addKeyword("gdata-test");
+		mg.setDescription(new MediaDescription());
+		mg.getDescription().setPlainTextContent(
+				inputDescription + "\n" + randomDescription);
+		
+		ResumableGDataFileUploader uploader = new ResumableGDataFileUploader.Builder(
+				service, new URL(RESUMABLE_UPLOAD_URL), ms, newEntry)
+				.title(videoTitle)
+				.chunkSize(DEFAULT_CHUNK_SIZE).build();
+		return uploader;
+	}
+	
 	/**
 	 * Uploads a new video to YouTube.
 	 *
@@ -85,19 +193,18 @@ public class UploadThread implements Runnable {
 
 		uploader.start();
 		while (!uploader.isDone()) {
-			Thread.sleep(1000);
+			Thread.sleep(2000);
 		}
 		switch (uploader.getUploadState()) {
 		case COMPLETE:
-			System.out.println("Uploaded successfully");
 			VideoEntry entry = uploader.getResponse(VideoEntry.class);
 			String videoId = entry.getMediaGroup().getVideoId();
 			Output videoOutput = new Output();
 			videoOutput.videoId = videoId;
 			videoOutput.youtubeAccount = youtubeUsername;
 			videoOutput.videoTitle = entry.getTitle().getPlainText();
-			System.out.println(videoOutput.videoTitle);
 			YouTubeUploadClient.videoOutputList.add(videoOutput);
+			System.out.println("Uploaded successfully! " + videoOutput.videoTitle);
 			break;
 		case CLIENT_ERROR:
 			System.out.println("Upload Failed");
@@ -108,5 +215,16 @@ public class UploadThread implements Runnable {
 		}
 	}
 	
+	private static int randomInteger(int aStart, int aEnd, Random aRandom){
+        if (aStart > aEnd) {
+          throw new IllegalArgumentException("Start cannot exceed End.");
+        }
+        //get the range, casting to long to avoid overflow problems
+        long range = (long)aEnd - (long)aStart + 1;
+        // compute a fraction of the range, 0 <= frac < range
+        long fraction = (long)(range * aRandom.nextDouble());
+        int randomNumber =  (int)(fraction + aStart);
+        return randomNumber;
+      }
 	
 }
