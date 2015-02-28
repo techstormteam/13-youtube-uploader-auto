@@ -1,14 +1,2 @@
 videolink,youtubeaccount,videotitle
-https://www.youtube.com/watch?v=RVJ4FBDuv8U,techstormteamwork@gmail.com,98 86 Men's Sweat Jacket H1060D20078A Black
-https://www.youtube.com/watch?v=nd4ucCQDjFA,vinh.thien0301@gmail.com,98 86 Men's Hoodie H1037A20076A Black
-https://www.youtube.com/watch?v=1KiyPI1IcTQ,vinh.thien0301@gmail.com,98 86 Men's Hoodie H1037A20076A Blue
-https://www.youtube.com/watch?v=PR3q-oldDVM,techstormteamwork@gmail.com,98 86 Men's Sweat Jacket H1060D20078A Dark Green
-https://www.youtube.com/watch?v=OKIKrco95sA,vinh.thien0301@gmail.com,98 86 Men's Hoodie H1037A20076A Grey
-https://www.youtube.com/watch?v=-sQVLEi62TA,techstormteamwork@gmail.com,98 86 Men's Sweat Jacket H1060D20078A Dark Grey
-https://www.youtube.com/watch?v=wDtPMn58cCg,vinh.thien0301@gmail.com,98 86 Men's Knitted Pullover H9600A93530A Dark Blue
-https://www.youtube.com/watch?v=EqHTl7VJN78,techstormteamwork@gmail.com,98 86 Men's Sweatshirt H1037A20098A Light Grey
-https://www.youtube.com/watch?v=eZkpi2BUDaQ,techstormteamwork@gmail.com,98 86 Men's T Shirt H1203S20160A Anthracite
-https://www.youtube.com/watch?v=9sCSSnfsb-E,vinh.thien0301@gmail.com,98 86 Men's Sweat Jacket H1060D20072A Black
-https://www.youtube.com/watch?v=ohDUxqf-UrY,vinh.thien0301@gmail.com,98 86 Men's Sweat Jacket H1060D20072A Grey Melange
-https://www.youtube.com/watch?v=eenSK5Aby6o,techstormteamwork@gmail.com,98 86 Men's T Shirt H1203S20160A Mocha Brown
-https://www.youtube.com/watch?v=aE1MzRnQifI,techstormteamwork@gmail.com,98 86 Men's T Shirt V Neck H1203S20030L Green
+https://www.youtube.com/watch?v=B4ZFds45GIw,techstormteamwork@gmail.com,98 86 Men's Sweat Jacket H1060D20072A Black

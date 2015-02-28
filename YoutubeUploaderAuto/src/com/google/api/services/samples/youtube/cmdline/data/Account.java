@@ -5,4 +5,5 @@ public class Account {
 	public String password;
 	public String developerKey;
 	public int delay;
+	public int videoUploadedNumber;
 }

@@ -34,6 +34,7 @@ import au.com.bytecode.opencsv.CSVWriter;
 
 import com.google.api.client.util.Charsets;
 import com.google.api.services.samples.youtube.cmdline.data.Account;
+import com.google.api.services.samples.youtube.cmdline.data.Input;
 import com.google.api.services.samples.youtube.cmdline.data.Output;
 import com.google.common.io.Files;
 import com.google.gdata.client.media.ResumableGDataFileUploader;
@@ -48,6 +49,7 @@ import com.google.gdata.data.youtube.YouTubeMediaGroup;
 import com.google.gdata.data.youtube.YouTubeNamespace;
 import com.google.gdata.util.AuthenticationException;
 import com.google.gdata.util.ServiceException;
+import com.google.gdata.util.UnprocessableEntityException;
 
 /**
  * Demonstrates YouTube Data API operation to upload large media files.
@@ -59,17 +61,25 @@ public class YouTubeUploadClient {
 	
 
 	private static final String APP_NAME = "497537842844-jd55qijeifck9smbn03j8bm7qc63jrb1.apps.googleusercontent.com";
-	
+	private static final String STATUS_TITLE = "status";
+	public static final String STATUS_UNPROCESS = "un-process";
+	public static final String STATUS_PROCESSING = "processing";
+	public static final String STATUS_PROCESSED = "processed";
 	
 	
 	
 	private static Map<String, YouTubeService> services = new HashMap<String, YouTubeService>();
+	private static List<String> accountIgnoredList = new ArrayList<String>();
 	private static Map<String, UploadThread> threads = new HashMap<String, UploadThread>();
 	
-
+	private static String getAccountString(String username, String password) {
+		return username + "@" + password;
+	}
 
 	private static int accountIndex = 0;
 	private static int videoNumberPerAccount = 0;
+	private static int totalVideosNeedUpload = 0;
+	private static int totalProcessed = 0;
 	public static final List<Output> videoOutputList = new ArrayList<Output>();
 	
 	/**
@@ -121,7 +131,8 @@ public class YouTubeUploadClient {
 		});
 
 		final List<Account> accountList = new ArrayList<Account>();
-
+		final List<Input> inputs = new ArrayList<Input>();
+		
 		// read csv file for each rows
 		CSV csv = CSV.separator(',') // delimiter of fields
 				.noQuote()
@@ -130,6 +141,7 @@ public class YouTubeUploadClient {
 
 		csv.read(third, new CSVReadProc() {
 			public void procRow(int rowIndex, String... values) {
+				
 				if (rowIndex == 0) {
 					return;
 				}
@@ -152,19 +164,40 @@ public class YouTubeUploadClient {
 			System.out.println("Stopped uploading videos.");
 			return;
 		}
-
+		
+		totalVideosNeedUpload = 0;
+		totalProcessed = 0;
 		accountIndex = 0;
 
 		csv.read(first, new CSVReadProc() {
 			public void procRow(int rowIndex, String... values) {
+				Input input = new Input();
+				input.title = values[0];
+				input.description = values[1];
+				input.link = values[2];
+				inputs.add(input);
+				
+				
 				if (rowIndex == 0) {
+					input.status = STATUS_TITLE;
 					return;
 				}
 				
-				if (accountList.size() <= accountIndex) {
-					accountIndex = accountList.size() - 1;
+				if (values.length >= 4 
+						&& (values[3].equals(STATUS_PROCESSING) 
+								|| values[3].equals(STATUS_PROCESSED) )) {
+					input.status = values[3];
+					totalProcessed++;
+					return;
 				}
 				
+				
+				totalVideosNeedUpload++;
+				
+				if (accountList.size() <= accountIndex) {
+					input.status = STATUS_UNPROCESS;
+					return;
+				}
 				
 				if (!services.containsKey(accountList.get(accountIndex).developerKey)) {
 					services.put(accountList.get(accountIndex).developerKey, 
@@ -173,20 +206,35 @@ public class YouTubeUploadClient {
 				
 				YouTubeService service = services.get(accountList.get(accountIndex).developerKey); 
 				
-				try {
-					
-					service.setUserCredentials(accountList.get(accountIndex).username, 
+				
+				boolean hasValidAccount = false;
+				while (accountList.size() > accountIndex && !hasValidAccount) {
+					String accountString = getAccountString(accountList.get(accountIndex).username, 
 							accountList.get(accountIndex).password);
-				} catch (AuthenticationException e) {
-					System.out.println(e.getMessage());
-					return;
+					try {
+						if (!accountIgnoredList.contains(accountString)) {
+							service.setUserCredentials(accountList.get(accountIndex).username, 
+									accountList.get(accountIndex).password);
+							hasValidAccount = true;
+						}
+					} catch (AuthenticationException e) {
+						System.out.println("Account " 
+								+ accountList.get(accountIndex).username + " " 
+								+ e.getMessage());
+						accountIgnoredList.add(accountString);
+						accountIndex++;
+					}
 				}
 				
+				if (accountList.size() <= accountIndex) {
+					input.status = STATUS_UNPROCESS;
+					return;
+				}
 				
 				if (threads.get(accountList.get(accountIndex).username) == null) {
 					UploadThread thread = new UploadThread();
 					thread.service = service;
-					thread.videoFileNames = new ArrayList<String>();
+					thread.videoFileNames = new HashMap<String, Input>();
 					thread.descriptionFiles = descriptionFiles;
 					thread.inputDescription = values[1];
 					thread.videoOutputList = videoOutputList;
@@ -197,13 +245,19 @@ public class YouTubeUploadClient {
 				}
 				
 				UploadThread thread = threads.get(accountList.get(accountIndex).username);
-				thread.videoFileNames.add(values[0]);
+				thread.videoFileNames.put(values[0], input);
 
+				input.status = STATUS_PROCESSING;
 				
-				accountIndex = rowIndex / videoNumberPerAccount;
-				
+				accountList.get(accountIndex).videoUploadedNumber++;
+				if (accountList.get(accountIndex).videoUploadedNumber == videoNumberPerAccount) {
+					accountIndex++;
+				}
 			}
 		});
+		
+		System.out.println("Total accounts: " + accountList.size());
+		System.out.println("Total videos need to upload: " + totalVideosNeedUpload);
 		
 		List<Thread> listThreads = new ArrayList<Thread>(); 
 		for (String username : threads.keySet()) {
@@ -211,7 +265,6 @@ public class YouTubeUploadClient {
 			Thread thread = new Thread(uploadThread);
 			thread.start();
 			listThreads.add(thread);
-			
 		}
 		for (Thread thread : listThreads) {
 			thread.join();
@@ -222,6 +275,22 @@ public class YouTubeUploadClient {
 				out.writeNext("videolink,youtubeaccount,videotitle");
 				for (Output output : videoOutputList) {
 					out.writeNext("https://www.youtube.com/watch?v=" + output.videoId + "," + output.youtubeAccount + "," + output.videoTitle);
+				}
+			}
+		});
+		
+		csv.write(first, new CSVWriteProc() {
+			public void process(CSVWriter out) {
+				for (Input input : inputs) {
+					StringBuilder builder = new StringBuilder();
+					builder.append(input.title);
+					builder.append(",");
+					builder.append(input.description);
+					builder.append(",");
+					builder.append(input.link);
+					builder.append(",");
+					builder.append(input.status);
+					out.writeNext(builder.toString());
 				}
 			}
 		});

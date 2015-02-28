@@ -20,9 +20,11 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import com.google.api.client.util.Charsets;
+import com.google.api.services.samples.youtube.cmdline.data.Input;
 import com.google.api.services.samples.youtube.cmdline.data.Output;
 import com.google.common.io.Files;
 import com.google.gdata.client.media.ResumableGDataFileUploader;
@@ -57,7 +59,7 @@ public class UploadThread implements Runnable {
 	private static final int DEFAULT_CHUNK_SIZE = 10000000;
 	
 	public YouTubeService service;
-	public List<String> videoFileNames;
+	public Map<String, Input> videoFileNames;
 	public File[] descriptionFiles;
 	public String inputDescription;
 	public List<Output> videoOutputList;
@@ -70,7 +72,7 @@ public class UploadThread implements Runnable {
 	public void run() {
 
 		List<Thread> subThreadList = new ArrayList<Thread>();
-		for (String videoFileName : videoFileNames) {
+		for (String videoFileName : videoFileNames.keySet()) {
 			try {
 				ResumableGDataFileUploader uploader = prepareVideoUploader(
 						service,
@@ -89,6 +91,8 @@ public class UploadThread implements Runnable {
 					public void run() {
 						try {
 							uploadVideo(uploader);
+							Input input = videoFileNames.get(videoFileName);
+							input.status = YouTubeUploadClient.STATUS_PROCESSED;
 						} catch (IOException | ServiceException
 								| InterruptedException e) {
 							e.printStackTrace();
