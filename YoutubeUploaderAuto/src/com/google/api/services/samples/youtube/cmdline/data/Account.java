@@ -5,5 +5,6 @@ public class Account {
 	public String password;
 	public String developerKey;
 	public int delay;
-	public int videoUploadedNumber;
+	public int videoUploadNumber;
+	public boolean ignored = false; // because invalid login or videoUploadNumber is over videonumber
 }

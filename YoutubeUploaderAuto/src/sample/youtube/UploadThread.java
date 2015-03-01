@@ -19,11 +19,13 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
 import com.google.api.client.util.Charsets;
+import com.google.api.services.samples.youtube.cmdline.data.Account;
 import com.google.api.services.samples.youtube.cmdline.data.Input;
 import com.google.api.services.samples.youtube.cmdline.data.Output;
 import com.google.common.io.Files;
@@ -60,6 +62,7 @@ public class UploadThread implements Runnable {
 	
 	public YouTubeService service;
 	public Map<String, Input> videoFileNames;
+	public Map<String, Input> videoFileNamesProcessing = new HashMap<String, Input>();
 	public File[] descriptionFiles;
 	public String inputDescription;
 	public List<Output> videoOutputList;
@@ -67,64 +70,70 @@ public class UploadThread implements Runnable {
 	public List<ResumableGDataFileUploader> uploaders = new ArrayList<ResumableGDataFileUploader>();
 	public String youtubeUsername;
 	public int delay;
+	public Account account;
 
 	@Override
 	public void run() {
-
-		List<Thread> subThreadList = new ArrayList<Thread>();
-		for (String videoFileName : videoFileNames.keySet()) {
-			try {
-				ResumableGDataFileUploader uploader = prepareVideoUploader(
-						service,
-						"videos/"+videoFileName, 
-						descriptionFiles,
-						inputDescription,
-						videoFileName.substring(0, videoFileName.length() - 4) // title removed .avi
-							.replace("_", " ")
-							.replace("-", " "),
-						videoOutputList,
-						url,
-						youtubeUsername);
-				Thread subThread = new Thread(new Runnable() {
-					
-					@Override
-					public void run() {
-						try {
-							uploadVideo(uploader);
-							Input input = videoFileNames.get(videoFileName);
-							input.status = YouTubeUploadClient.STATUS_PROCESSED;
-						} catch (IOException | ServiceException
-								| InterruptedException e) {
-							e.printStackTrace();
+		do {
+			List<Thread> subThreadList = new ArrayList<Thread>();
+			videoFileNamesProcessing.clear();
+			videoFileNamesProcessing.putAll(videoFileNames);
+			videoFileNames.clear();
+			for (String videoFileName : videoFileNamesProcessing.keySet()) {
+				try {
+					ResumableGDataFileUploader uploader = prepareVideoUploader(
+							service,
+							"videos/"+videoFileName, 
+							descriptionFiles,
+							inputDescription,
+							videoFileName.substring(0, videoFileName.length() - 4) // title removed .avi
+								.replace("_", " ")
+								.replace("-", " "),
+							videoOutputList,
+							url,
+							youtubeUsername);
+					Thread subThread = new Thread(new Runnable() {
+						
+						@Override
+						public void run() {
+							try {
+								uploadVideo(uploader);
+								Input input = videoFileNamesProcessing.get(videoFileName);
+								input.status = YouTubeUploadClient.STATUS_PROCESSED;
+								YouTubeUploadClient.totalVideosUploaded++;
+							} catch (IOException | ServiceException
+									| InterruptedException e) {
+								e.printStackTrace();
+							}
 						}
-					}
-				});
-				subThread.start();
-				subThreadList.add(subThread);
-				System.out.println("Thread " + youtubeUsername 
-						+ " sleeping in " + delay + " second(s).");
-				Thread.sleep(delay * 1000);
-				
-			} catch (IOException e) {
-				// Communications error
-				System.err
-						.println("There was a problem communicating with the service.");
-				e.printStackTrace();
-			} catch (ServiceException se) {
-				System.out.println("Sorry, your upload was invalid:");
-				System.out.println(se.getResponseBody());
-				se.printStackTrace();
-			} catch (InterruptedException ie) {
-				System.out.println("Upload interrupted");
+					});
+					subThread.start();
+					subThreadList.add(subThread);
+					System.out.println("Thread " + youtubeUsername 
+							+ " sleeping in " + delay + " second(s).");
+					Thread.sleep(delay * 1000);
+					
+				} catch (IOException e) {
+					// Communications error
+					System.err
+							.println("There was a problem communicating with the service.");
+					e.printStackTrace();
+				} catch (ServiceException se) {
+					System.out.println("Sorry, your upload was invalid:");
+					System.out.println(se.getResponseBody());
+					se.printStackTrace();
+				} catch (InterruptedException ie) {
+					System.out.println("Upload interrupted");
+				}
 			}
-		}
-		for (Thread thread : subThreadList) {
-			try {
-				thread.join();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
+			for (Thread thread : subThreadList) {
+				try {
+					thread.join();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
 			}
-		}
+		} while (!account.ignored || !videoFileNames.isEmpty());
 	}
 
 	private static ResumableGDataFileUploader prepareVideoUploader(
